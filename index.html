@@ -1,0 +1,237 @@
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script>
+        let snapXY = false;
+        let server = "http://192.168.3.63:2222";
+        let posX = 0 , posY = 0 ;//現在地
+        let lastPosX = 0 , lastPosY = 0 ;//前の値
+        let moved = false;//動いたか
+        window.onload = (e) => {
+            let logger = document.getElementsByClassName("log")[0];
+            document.body.addEventListener("mousemove",function(e){
+                moved =true;
+                e.preventDefault();
+                var x = e.clientX;
+                if(snapXY) x = e.clientY;
+                var y = e.clientY;
+                if(snapXY) y = e.clientX*-1;
+                let dX = 0 , dY = 0 ;
+                dX = lastPosX - x;
+                dY = lastPosY - y;
+                lastPosX = x;
+                lastPosY = y;
+                posX = x;
+                posY = y;
+
+                var xhr = new XMLHttpRequest();
+                xhr.open("GET", server+"/api/mouse?x="+dX*-1 +"&y="+dY*-1, true);
+                logger.innerHTML=parseInt(dX)+","+parseInt(dY);
+                xhr.onload = function (e) {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                    console.log(xhr.responseText);
+                    } else {
+                    console.error(xhr.statusText);
+                    }
+                }
+                };
+                xhr.onerror = function (e) {
+                    console.error(xhr.statusText);
+                };
+                xhr.send(null);
+            })
+            document.body.addEventListener("mousedown",function(e){
+                moved=false;
+                var x = e.clientX;
+                if(snapXY) x = e.clientY;
+                var y = e.clientY;
+
+                if(snapXY) y = e.clientX;
+                posX = x;
+                posY = y ;
+                lastPosX = x;
+                lastPosY  = y
+                console.log(posX);
+            })
+            document.body.addEventListener("mouseup",function(e){
+                if(!moved){
+                    console.log("click");
+                var xhr = new XMLHttpRequest();
+                xhr.open("GET", server+"/api/click", true);
+                xhr.onload = function (e) {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                    console.log(xhr.responseText);
+                    } else {
+                    console.error(xhr.statusText);
+                    }
+                }
+                };
+                xhr.onerror = function (e) {
+                    console.error(xhr.statusText);
+                };
+                xhr.send(null);
+
+                }
+            })
+            document.body.addEventListener("touchend",function(e){
+                if(!moved){
+                    console.log("click");
+                var xhr = new XMLHttpRequest();
+                xhr.open("GET", server+"/api/click", true);
+                xhr.onload = function (e) {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                    console.log(xhr.responseText);
+                    } else {
+                    console.error(xhr.statusText);
+                    }
+                }
+                };
+                xhr.onerror = function (e) {
+                    console.error(xhr.statusText);
+                };
+                xhr.send(null);
+
+                }
+            })
+            document.body.addEventListener("touchmove",function(e){
+                moved=true;
+                e.preventDefault();
+                var x = e.changedTouches[0].clientX;
+                if(snapXY) x = e.changedTouches[0].clientY;
+                var y = e.changedTouches[0].clientY;
+                if(snapXY) y = e.changedTouches[0].clientX*-1;
+                let dX = 0 , dY = 0 ;
+                dX = lastPosX - x;
+                dY = lastPosY - y;
+                lastPosX = x;
+                lastPosY = y;
+                posX = x;
+                posY = y;
+                logger.innerHTML=parseInt(dX)+","+parseInt(dY)
+
+                var xhr = new XMLHttpRequest();
+                xhr.open("GET", server+"/api/mouse?x="+dX*-1 +"&y="+dY*-1, true);
+                xhr.onload = function (e) {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                    console.log(xhr.responseText);
+                    } else {
+                    console.error(xhr.statusText);
+                    }
+                }
+                };
+                xhr.onerror = function (e) {
+                    console.error(xhr.statusText);
+                };
+                xhr.send(null);
+            });
+            document.body.addEventListener("touchstart",function(e){
+                moved=false;
+                var x = e.changedTouches[0].clientX;
+                if(snapXY) x = e.changedTouches[0].clientY;
+                var y = e.changedTouches[0].clientY;
+                if(snapXY) y = e.changedTouches[0].clientX*-1;
+
+                posX = x;
+                posY = y ;
+                lastPosX = x;
+                lastPosY  = y
+                console.log(posX);
+            });
+            document.body.addEventListener("touchend",function(e){
+                
+            });
+            let gyroEnable = false;
+            if(gyroEnable)window.addEventListener("deviceorientation", handleOrientation, true);
+ 
+            function handleOrientation(event) {
+                var absolute = event.absolute;
+                var alpha    = event.alpha;
+                var beta     = event.beta;
+                var gamma    = event.gamma;
+
+                logger.innerHTML=parseInt(alpha)+","+parseInt(beta)
+
+
+                var x = beta;
+                var y = alpha;
+                let dX = 0 , dY = 0 ;
+                dX = lastPosX - x;
+                dY = lastPosY - y;
+                lastPosX = x;
+                lastPosY = y;
+                posX = x;
+                posY = y;
+
+                var xhr = new XMLHttpRequest();
+                xhr.open("GET", server+"/api/mouse?x="+dX*-1 +"&y="+dY*-1, true);
+                xhr.onload = function (e) {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                    console.log(xhr.responseText);
+                    } else {
+                    console.error(xhr.statusText);
+                    }
+                }
+                };
+                xhr.onerror = function (e) {
+                    console.error(xhr.statusText);
+                };
+                xhr.send(null);
+            }
+        }
+
+    </script>
+    <style>
+        body{
+
+        }
+
+        html,body{
+            width: 100%;
+            height: 100%;
+            background-color: rgb(65, 65, 65);
+            margin: 0;
+            padding: 0;
+            overflow: hidden
+        }
+        .full{
+            overflow-y:scroll;
+            height:90%;
+            width:90%;
+
+        }
+        .log{
+            color: rgb(65,65,65);
+            font: optional;
+        }
+        .position-absolute{
+            position: absolute;  /*要素を浮かす*/
+            /*relativeを指定した親要素を支点とした位置をすべて0に指定↓*/
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            margin: auto; /*上下左右中央に*/
+            width: 90%; /*widthの指定は必須*/
+            height: 90%; /*heightの指定は必須*/
+            border-radius:40px;
+            border:solid gray 2px;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="full position-absolute">
+        <h1 class="log">
+            x,y
+        </h1>
+    </div>
+</body>
+</html>
