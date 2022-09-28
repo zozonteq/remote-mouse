@@ -8,3 +8,5 @@ cd remote-mouse # into repo
 npm i # install libs
 node index.js # run
 ```
+# 使い方
+起動するとターミナルにQRコードが出力されるので、読みとるとSafariが起動され使うことができます。
