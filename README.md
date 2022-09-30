@@ -9,7 +9,7 @@ npm i # 依存関係を解決
 node index.js # 実行
 ```
 # 使い方
-```
+```bash
 node index.js #実行
 ```
 起動するとターミナルにQRコードが出力されます。  
