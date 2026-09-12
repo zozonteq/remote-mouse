@@ -5,3 +5,4 @@ linux-remote-mouse
 dist
 
 node_modules
+.claude/worktrees/
