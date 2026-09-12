@@ -3,3 +3,5 @@ windows-x64-remote-mouse
 linux-x64-remote-mouse
 linux-remote-mouse
 dist
+
+node_modules
