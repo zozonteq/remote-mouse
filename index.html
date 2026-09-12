@@ -2,16 +2,96 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Document</title>
     <script>
         let snapXY = false;
-        let server = "http://192.168.3.63:2222";
+        // QRコードで開いたページと同じサーバーへリクエストする。
+        // 固定IPにすると、PCのIP変更やネットワーク切り替えで接続できなくなる。
+        const server = window.location.origin;
         let posX = 0 , posY = 0 ;//現在地
         let lastPosX = 0 , lastPosY = 0 ;//前の値
         let moved = false;//動いたか
+        let pendingMouseX = 0;
+        let pendingMouseY = 0;
+        let mouseRequestInFlight = false;
+        let mouseFlushScheduled = false;
+        let pendingScrollX = 0;
+        let pendingScrollY = 0;
+        let scrollRequestInFlight = false;
+        let touchMode = "mouse";
+        let lastTouchCenterX = 0;
+        let lastTouchCenterY = 0;
+
+        function queueMouseMove(x, y) {
+            pendingMouseX += x;
+            pendingMouseY += y;
+            if (!mouseFlushScheduled) {
+                mouseFlushScheduled = true;
+                requestAnimationFrame(flushMouseMove);
+            }
+        }
+
+        function flushMouseMove() {
+            mouseFlushScheduled = false;
+            if (mouseRequestInFlight || (pendingMouseX === 0 && pendingMouseY === 0)) return;
+
+            const x = pendingMouseX;
+            const y = pendingMouseY;
+            pendingMouseX = 0;
+            pendingMouseY = 0;
+            mouseRequestInFlight = true;
+
+            const xhr = new XMLHttpRequest();
+            xhr.open("GET", server + "/api/mouse?x=" + x + "&y=" + y, true);
+            xhr.onloadend = function () {
+                mouseRequestInFlight = false;
+                if (pendingMouseX !== 0 || pendingMouseY !== 0) flushMouseMove();
+            };
+            xhr.onerror = function () {
+                mouseRequestInFlight = false;
+                if (pendingMouseX !== 0 || pendingMouseY !== 0) flushMouseMove();
+            };
+            xhr.send(null);
+        }
+
+        function queueScroll(x, y) {
+            pendingScrollX += x;
+            pendingScrollY += y;
+            if (scrollRequestInFlight) return;
+
+            // 二本指の移動を大きめのスクロール量へ変換して操作感を上げる。
+            const scrollX = Math.round(-pendingScrollX / 2);
+            const scrollY = Math.round(-pendingScrollY / 2);
+            if (scrollX === 0 && scrollY === 0) return;
+            pendingScrollX = 0;
+            pendingScrollY = 0;
+            scrollRequestInFlight = true;
+
+            const xhr = new XMLHttpRequest();
+            xhr.open("GET", server + "/api/scroll?x=" + scrollX + "&y=" + scrollY, true);
+            xhr.onloadend = xhr.onerror = function () {
+                scrollRequestInFlight = false;
+                if (pendingScrollX !== 0 || pendingScrollY !== 0) queueScroll(0, 0);
+            };
+            xhr.send(null);
+        }
+
+        function touchCenter(touches) {
+            return {
+                x: (touches[0].clientX + touches[1].clientX) / 2,
+                y: (touches[0].clientY + touches[1].clientY) / 2
+            };
+        }
+
         window.onload = (e) => {
             let logger = document.getElementsByClassName("log")[0];
+            function preventBrowserGesture(e) {
+                e.preventDefault();
+            }
+            document.addEventListener("gesturestart", preventBrowserGesture, {passive: false});
+            document.addEventListener("gesturechange", preventBrowserGesture, {passive: false});
+            document.addEventListener("gestureend", preventBrowserGesture, {passive: false});
             document.body.addEventListener("mousemove",function(e){
                 moved =true;
                 e.preventDefault();
@@ -27,22 +107,8 @@
                 posX = x;
                 posY = y;
 
-                var xhr = new XMLHttpRequest();
-                xhr.open("GET", server+"/api/mouse?x="+dX*-1 +"&y="+dY*-1, true);
+                queueMouseMove(dX * -1, dY * -1);
                 logger.innerHTML=parseInt(dX)+","+parseInt(dY);
-                xhr.onload = function (e) {
-                if (xhr.readyState === 4) {
-                    if (xhr.status === 200) {
-                    console.log(xhr.responseText);
-                    } else {
-                    console.error(xhr.statusText);
-                    }
-                }
-                };
-                xhr.onerror = function (e) {
-                    console.error(xhr.statusText);
-                };
-                xhr.send(null);
             })
             document.body.addEventListener("mousedown",function(e){
                 moved=false;
@@ -98,10 +164,18 @@
                 xhr.send(null);
 
                 }
-            })
+            }, {passive: false})
             document.body.addEventListener("touchmove",function(e){
                 moved=true;
                 e.preventDefault();
+                if (touchMode === "scroll") {
+                    if (e.touches.length < 2) return;
+                    var center = touchCenter(e.touches);
+                    queueScroll(center.x - lastTouchCenterX, center.y - lastTouchCenterY);
+                    lastTouchCenterX = center.x;
+                    lastTouchCenterY = center.y;
+                    return;
+                }
                 var x = e.changedTouches[0].clientX;
                 if(snapXY) x = e.changedTouches[0].clientY;
                 var y = e.changedTouches[0].clientY;
@@ -115,24 +189,19 @@
                 posY = y;
                 logger.innerHTML=parseInt(dX)+","+parseInt(dY)
 
-                var xhr = new XMLHttpRequest();
-                xhr.open("GET", server+"/api/mouse?x="+dX*-1 +"&y="+dY*-1, true);
-                xhr.onload = function (e) {
-                if (xhr.readyState === 4) {
-                    if (xhr.status === 200) {
-                    console.log(xhr.responseText);
-                    } else {
-                    console.error(xhr.statusText);
-                    }
-                }
-                };
-                xhr.onerror = function (e) {
-                    console.error(xhr.statusText);
-                };
-                xhr.send(null);
-            });
+                queueMouseMove(dX * -1, dY * -1);
+            }, {passive: false});
             document.body.addEventListener("touchstart",function(e){
                 moved=false;
+                if (e.touches.length >= 2) {
+                    touchMode = "scroll";
+                    var center = touchCenter(e.touches);
+                    lastTouchCenterX = center.x;
+                    lastTouchCenterY = center.y;
+                    moved = true;
+                    return;
+                }
+                touchMode = "mouse";
                 var x = e.changedTouches[0].clientX;
                 if(snapXY) x = e.changedTouches[0].clientY;
                 var y = e.changedTouches[0].clientY;
@@ -143,10 +212,10 @@
                 lastPosX = x;
                 lastPosY  = y
                 console.log(posX);
-            });
+            }, {passive: false});
             document.body.addEventListener("touchend",function(e){
-                
-            });
+                if (e.touches.length === 0) touchMode = "mouse";
+            }, {passive: false});
             let gyroEnable = false;
             if(gyroEnable)window.addEventListener("deviceorientation", handleOrientation, true);
  
@@ -169,21 +238,7 @@
                 posX = x;
                 posY = y;
 
-                var xhr = new XMLHttpRequest();
-                xhr.open("GET", server+"/api/mouse?x="+dX*-1 +"&y="+dY*-1, true);
-                xhr.onload = function (e) {
-                if (xhr.readyState === 4) {
-                    if (xhr.status === 200) {
-                    console.log(xhr.responseText);
-                    } else {
-                    console.error(xhr.statusText);
-                    }
-                }
-                };
-                xhr.onerror = function (e) {
-                    console.error(xhr.statusText);
-                };
-                xhr.send(null);
+                queueMouseMove(dX * -1, dY * -1);
             }
         }
 
@@ -199,12 +254,16 @@
             background-color: rgb(65, 65, 65);
             margin: 0;
             padding: 0;
-            overflow: hidden
+            overflow: hidden;
+            touch-action: none;
+            overscroll-behavior: none;
         }
         .full{
             overflow-y:scroll;
             height:90%;
             width:90%;
+            touch-action: none;
+            overscroll-behavior: none;
 
         }
         .log{
